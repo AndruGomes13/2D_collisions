@@ -7,6 +7,7 @@ from pygame.event import Event
 from Plot_function import *
 import math
 import random
+import numpy as np
 
 ############### Variable Declaration ###########
 
@@ -22,7 +23,7 @@ WIN = pygame.display.set_mode(DISPLAY_DIM)
 pygame.display.set_caption('Algorithm Demo')
 
 # Frames per second
-FPS = 200
+FPS = 150
 CLOCK = pygame.time.Clock()
 
 
@@ -43,9 +44,9 @@ ball_list = []
 # Adds dot
 def add_ball(coordinates: tuple, color: "string" ) -> None:
     ball = Ball(coordinates[0], coordinates[1], color)
-    ball.radius = 30
-    ball.v_x = (random.random() * 2 - 1) * 1000
-    ball.v_y = (random.random() * 2 - 1) * 1000
+    ball.radius = 10
+    ball.v_x = (random.random() * 2 - 1) * 100
+    ball.v_y = (random.random() * 2 - 1) * 100
 
     ball_list.append(ball)
 
@@ -111,7 +112,7 @@ def ground_collision(ball_list, dt):
             ball.v_y *= -1
             ball.a_y = 0
 
-def ball_collision(ball_list):
+def detect_collision(ball_list):
 
     for ball in ball_list:
         collision = False
@@ -125,8 +126,45 @@ def ball_collision(ball_list):
         else:
             ball.color = pygame.Color("Red")
 
+def ball_collision(ball_1, ball_2):
+    r1 = np.array([ball_1.x, ball_1.y])
+    v1 = np.array([ball_1.v_x, ball_1.v_y])
+    m1 = ball_1.mass
 
-            
+    r2 = np.array([ball_2.x, ball_2.y]) 
+    v2 = np.array([ball_2.v_x, ball_2.v_y])
+    m2 = ball_2.mass
+    
+    v1_f = v1 - (2*m2 / (m1 + m2)) * np.dot((v1 -v2), (r1 - r2)) / (np.linalg.norm(r1 - r2) ** 2) * (r1 - r2)
+    v2_f = v2 - (2*m1 / (m1 + m2)) * np.dot((v2 -v1), (r2 - r1)) / (np.linalg.norm(r2 - r1) ** 2) * (r2 - r1)
+
+    return v1_f.tolist(), v2_f.tolist()
+
+def handle_collision(ball_list_original):
+    # ball_list = ball_list_original.copy()
+    # for ball in ball_list:
+    #     ball_list.remove(ball)
+    #     for ball_2 in ball_list:
+    #         if ball != ball_2:
+    #             if distance(ball, ball_2) <= (ball.radius + ball_2.radius):
+    #                 (v1, v2) = ball_collision(ball, ball_2)
+    #                 ball.v_x = v1[0]
+    #                 ball.v_y = v1[1]
+    #                 ball_2.v_x = v2[0]
+    #                 ball_2.v_y = v2[1]
+    #                 print("colide")
+    #                 ball_list.remove(ball_2)
+
+    index_table = [[i,i + j + 1] for i in range(len(ball_list)) for j in range(len(ball_list) - i - 1)]
+    for i, j in index_table:
+        ball = ball_list[i]
+        ball_2 = ball_list[j]
+        if distance(ball, ball_2) <= (ball.radius + ball_2.radius):
+                (v1, v2) = ball_collision(ball, ball_2)
+                ball.v_x = v1[0]
+                ball.v_y = v1[1]
+                ball_2.v_x = v2[0]
+                ball_2.v_y = v2[1]
 
 
 
@@ -158,11 +196,13 @@ def main():
     ### Initializing aux variables
     getTicksLastFrame = pygame.time.get_ticks()
     
-    for i in range(10):
-        add_ball((random.random()*500 + 100, random.random()*100 + 100), "red")
+    for i in range(20):
+        add_ball((random.random()*500 + 100, random.random()*300 + 100), "red")
+
 
     a = 0
     while running:
+        
         # Setting FPS
         CLOCK.tick(FPS)
 
@@ -200,11 +240,11 @@ def main():
         ground_collision(ball_list, dt)
 
         # Check ball collisions
-        ball_collision(ball_list)
-
+        handle_collision(ball_list)
+  
         # Applying force
         for ball in ball_list:
-            force = (0, 0)
+            force = (0, 4)
             ball.apply_force(force)
 
 
