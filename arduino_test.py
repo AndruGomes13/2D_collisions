@@ -7,6 +7,8 @@ from pygame.event import Event
 from Plot_function import *
 import math
 import random
+import serial
+from Joystick import Joystick
 
 ############### Variable Declaration ###########
 
@@ -44,8 +46,8 @@ ball_list = []
 def add_ball(coordinates: tuple, color: "string" ) -> None:
     ball = Ball(coordinates[0], coordinates[1], color)
     ball.radius = 30
-    ball.v_x = (random.random() * 2 - 1) * 1000
-    ball.v_y = (random.random() * 2 - 1) * 1000
+    ball.v_x = (random.random() * 2 - 1) * 100
+    ball.v_y = (random.random() * 2 - 1) * 100
 
     ball_list.append(ball)
 
@@ -126,6 +128,29 @@ def ball_collision(ball_list):
             ball.color = pygame.Color("Red")
 
 
+
+
+
+# ser = serial.Serial('COM5', 9600, timeout=1)
+def get_joystick():
+    result = ser.readline()
+    print(result)
+    result = result[:-2]
+    result = result.decode()
+    out = result.split(";")
+ 
+
+    if len(out) < 3:
+        return [0 , 0 , 0]
+
+    else:
+        out[0] = int(out[0]) / 1024 * 2 -1
+        out[1] = int(out[1]) / 1024 * 2 -1
+        out[2] = int(out[2])
+        out[2] ^= 1
+        # print(out)
+        return out
+    
             
 
 
@@ -158,63 +183,60 @@ def main():
     ### Initializing aux variables
     getTicksLastFrame = pygame.time.get_ticks()
     
-    for i in range(10):
-        add_ball((random.random()*500 + 100, random.random()*100 + 100), "red")
+    
+    add_ball((0,0), "red")
+    joystick_clicked = False
+    
+    joystick = Joystick()
 
-    a = 0
     while running:
         # Setting FPS
         CLOCK.tick(FPS)
+            # Delta t
+        t = pygame.time.get_ticks()
+        # deltaTime in seconds.
+        dt = (t - getTicksLastFrame) / 1000.0
+        getTicksLastFrame = t
 
         # Getting Mouse position
-        mouse_pos = pygame.mouse.get_pos()
+        joystick_state = joystick.get_joystick()
 
         # Handling events
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
             
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                click_handling(event, mouse_pos, ProgramContext)
 
-            if event.type == pygame.KEYDOWN:
-                key_handling(event, ProgramContext)
+        # Handling joystick event
+        for ball in ball_list:
+            # ball.x = (joystick_state[0] * 100 + 500)
+            # ball.y = (-joystick_state[1] * 100 + 200)
 
-        if pygame.key.get_pressed()[pygame.K_m]:
-            a += 0.1
-        if pygame.key.get_pressed()[pygame.K_n]:
-            a -= 0.1
+            ball.v_x = (joystick_state[0] * 100)
+            ball.v_y = (-joystick_state[1] * 100)
+
+        for ball in ball_list:
+            if joystick_state[2] and not joystick_clicked:
+                ball.color = pygame.Color("blue")
+                joystick_clicked = True
+            elif not joystick_state[2] and joystick_clicked:
+                joystick_clicked = False
+                ball.color = pygame.Color("red")
+        
 
 
         ######### Simulating and Rendering ###########
         ### Steping through object dynamics
 
-        # Delta t
-        t = pygame.time.get_ticks()
-        # deltaTime in seconds.
-        dt = (t - getTicksLastFrame) / 1000.0
-        getTicksLastFrame = t
 
-
-        # Check ground and wall collisions
-        ground_collision(ball_list, dt)
-
-        # Check ball collisions
-        ball_collision(ball_list)
-
-        # Applying force
-        for ball in ball_list:
-            force = (0, 0)
-            ball.apply_force(force)
-
-
-        # Steping objects
-        for ball in ball_list:
-            ball.step(dt)
 
 
         ### Rendering objects
         WIN.fill(pygame.Color("white"))
+
+        # Steping balls
+        for dot in ball_list:
+            dot.step(dt)
 
         # Rendering balls
         for dot in ball_list:
